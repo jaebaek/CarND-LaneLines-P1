@@ -1,56 +1,112 @@
 # **Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-<img src="examples/laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
+## Writeup Template
 
-Overview
+### You can use this file as a template for your writeup if you want to submit it as a markdown file. But feel free to use some other method and submit a pdf if you prefer.
+
 ---
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+**Finding Lane Lines on the Road**
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
-
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
-
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+The goals / steps of this project are the following:
+* Make a pipeline that finds lane lines on the road
+* Reflect on your work in a written report
 
 
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
+[//]: # (Image References)
 
-1. Describe the pipeline
+[solidwhite]: ./test_images_output/solidWhiteRight.jpg
+[solidyellow]: ./test_images_output/solidYellowLeft.jpg
+[curved1]: ./test_images_output/solidWhiteCurve.jpg
+[curved2]: ./test_images_output/solidYellowCurve.jpg
 
-2. Identify any shortcomings
-
-3. Suggest possible improvements
-
-We encourage using images in your writeup to demonstrate how your pipeline works.  
-
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
-
-
-The Project
 ---
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
+### Reflection
 
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/83ec35ee-1e02-48a5-bdb7-d244bd47c2dc/lessons/8c82408b-a217-4d09-b81d-1bda4c6380ef/concepts/4f1870e0-3849-43e4-b670-12e6f2d4b7a7) if you haven't already.
+### 1. Describe your pipeline. As part of the description, explain how you modified the draw_lines() function.
 
-**Step 2:** Open the code in a Jupyter Notebook
+My pipeline consisted of 5 steps.
+- Converting the images to grayscale.
+- Applying Gaussian Blur to the grayscaled image.
+- Detecting edges based on Canny Edge Detection.
+- Getting only interested region.
+    - This region must be a polygon that fully contains both left and right lanes and
+      at the same time it must exclude other region potentially causing confusion
+      (e.g., region considered as the lane like white car).
+- Finding lines using Hough Transform with the input of detected edges
+  (i.e., output of Canny Edge Detection).
 
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out <A HREF="https://www.packtpub.com/books/content/basics-jupyter-notebook-and-python" target="_blank">Cyrille Rossant's Basics of Jupyter Notebook and Python</A> to get started.
+The main challenge of the pipeline implementation is understanding high level concepts
+to the implementation details including API usages and the determination of parameters.
+To decide parameters, we must consider given conditions and meaning of each argument of
+APIs.
+- For Canny Edge Detection, since it takes advantage of the gradient and the range
+of gray pixels must be \[0 - 255\], the threshold must be one of values in \[1 - 254\].
+We can assume that bright lanes that humans can recognize (e.g., white, yellow) have
+big enough gradients. Thus, we can set big thresholds (e.g., 150 for high\_threshold).
+According to the know-how ratio between low\_threshold and high\_threshold (i.e., 1:3),
+I set the low\_threshold as 1/3 of high\_threshold.
+- For Hough Transform to find lines, I used (1, numpy.pi/180, 10, 15) as (rho, theta,
+threshold, min\_line\_length). This setting decides it is a line if there are more than
+10 points in the grid of (1, numpy.pi/180) and the line is bigger than 15. I assumed that
+the line is a set of continuous points and "continuous points" must be close enough.
+In other words, even small grid (e.g., 1, numpy.pi/180) must contain many points if it
+is a line. I found the exact value based on trials and errors. I adopted the similar
+intuition to set the min\_line\_length (i.e., how many "continuous points" are needed
+for a line).
 
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
+In order to draw a single line on the left and right lanes, I added the
+connect\_lines() function. The basic assumptions are
+- There are only two lanes (i.e., left and right).
+- Each lane is a straight line (i.e., not curved)
+- If we make a lane longer, it must be close to lines that is a part of the lane.
+- Lines not contained in a lane must have different slopes from the slope of the lane
+and the difference should be big enough.
 
-`> jupyter notebook`
+Those assumptions are considered with virtual lanes, but we only have information for
+lines found by Hough Transform (i.e., the result of the pipeline).
+To get the lane, the function first finds the major line included in a lane. I considered
+the major line must contain the maximum number of lines when extending it. Since two
+lines are rarely intersected but can be considered as parts of the same lane, I allowed a
+small error. For each line _L_, the function gets y-distance from the extended _L_ to
+two end points (_x1_, _y1_), (_x2_, _y2_) of other lines.
+For example, if _L_ is _slop * (x-x0) = (y-y0)_, the y-distance from (_x1_, _y1_) from
+the extended _L_ is _abs(y1-y0-slop*(x1-x0))_.
+After getting the first major line, it extends the major line to lines that have similar
+slopes to the major line (by getting maximum and minimum x-values).
+Then, it extends the major line to the bottom of the image (i.e., y-value == y-size).
+It does the same thing to find the second major line, but only difference is to skip
+lines that have not big enough slope difference from the first major line when searching
+the second major line.
 
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
+Results are shown as:
 
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
+![alt text][solidwhite]
+![alt text][solidyellow]
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
+### 2. Identify potential shortcomings with your current pipeline
+
+First, I assumed many things and it means there are many limitations in the current
+implementation. For example, I assumed lanes are straight. It does not work well for
+curved lanes.
+
+Second, I fixed parameters (e.g., for Canny Edge Detection and Hough Transform). I
+guess this works fine for a small set of images, but the performance will be seriously
+bad when testing it against a large set of images. For example, the region of interest
+is very critical to the result. If some images having many white objects (e.g., white
+cars) in the fixed region of interest, then there will be so many detected edges from
+Canny Edge Detection.
+
+
+### 3. Suggest possible improvements to your pipeline
+
+A possible improvement would be to find a better transform to detect curved lanes.
+I am not sure but I think we need another mathematical theory to handle curved lanes.
+In particular, when the angle of curve is changed quickly (e.g., small circle), I
+guess Hough Transform cannot find the curved lane (even when we set the parameters
+very well).
+
+Another potential improvement could be the adaptive parameter selection. We need an
+algorithm to automatically determine better parameters for the given input.

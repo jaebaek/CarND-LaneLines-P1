@@ -81,6 +81,7 @@ lines that have not big enough slope difference from the first major line when s
 the second major line.
 
 Results are shown as:
+
 ![alt text][solidwhite]
 ![alt text][solidyellow]
 
